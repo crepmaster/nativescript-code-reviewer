@@ -1,0 +1,26 @@
+{
+  "name": "nativescript-code-reviewer",
+  "version": "0.2.0",
+  "description": "Static code reviewer for NativeScript projects (syntax, security, best-practices, TypeScript-aware)",
+  "main": "index.js",
+  "bin": {
+    "ns-review": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js .",
+    "scan": "node index.js",
+    "lint": "eslint . --ext .js,.ts --fix || true",
+    "samples": "node run-samples.js",
+    "install:typescript-eslint": "npm install eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin --save-optional"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "glob": "^8.0.3",
+    "minimatch": "^9.0.1",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "typescript": "^5.3.0"
+  }
+}

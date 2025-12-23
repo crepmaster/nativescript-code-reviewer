@@ -1,0 +1,4 @@
+node_modules/
+*.log
+ns-review-report.json
+sample-report.json
