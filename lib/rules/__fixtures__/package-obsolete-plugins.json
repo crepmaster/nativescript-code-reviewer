@@ -1,0 +1,14 @@
+{
+  "name": "test-obsolete-plugins",
+  "version": "1.0.0",
+  "dependencies": {
+    "@nativescript/core": "^6.5.0",
+    "nativescript-plugin-firebase": "^11.0.0",
+    "nativescript-barcodescanner": "^4.0.0",
+    "nativescript-camera": "^4.5.0",
+    "@nativescript/geolocation": "^7.0.0"
+  },
+  "devDependencies": {
+    "@angular/core": "^17.0.0"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "test-no-lockfile",
+  "version": "1.0.0",
+  "engines": {
+    "node": "20.19.5",
+    "npm": "10.8.2"
+  },
+  "dependencies": {
+    "@nativescript/core": "^8.5.0",
+    "lodash": "*",
+    "my-local-dep": "file:../local-package",
+    "my-git-dep": "git+ssh://git@github.com:user/repo.git"
+  }
+}

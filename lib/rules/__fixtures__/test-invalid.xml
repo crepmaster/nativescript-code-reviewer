@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page xmlns="http://schemas.nativescript.org/tns.xsd">
+  <StackLayout>
+    <!-- This has an unescaped ampersand -->
+    <Label text="Terms & Conditions" />
+
+    <!-- This is missing a closing tag -->
+    <Button text="Click me"
+
+    <!-- Binding with complex logic -->
+    <Label text="{{ isActive && hasPermission ? 'Yes' : 'No' }}" />
+
+    <!-- Valid content -->
+    <Label text="Hello World" />
+  </StackLayout>
+</Page>

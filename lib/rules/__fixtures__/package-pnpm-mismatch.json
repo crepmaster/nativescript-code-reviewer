@@ -1,0 +1,8 @@
+{
+  "name": "test-pnpm-mismatch",
+  "version": "1.0.0",
+  "packageManager": "pnpm@8.15.0",
+  "dependencies": {
+    "@nativescript/core": "^8.5.0"
+  }
+}
