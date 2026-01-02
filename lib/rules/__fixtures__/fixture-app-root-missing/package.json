@@ -1,0 +1,7 @@
+{
+  "name": "fixture-app-root-missing",
+  "main": "app/main.ts",
+  "nativescript": {
+    "id": "com.test.approotmissing"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "fixture-webpack-entry-invalid",
+  "main": "app/app.ts",
+  "nativescript": {
+    "id": "com.test.webpack"
+  }
+}

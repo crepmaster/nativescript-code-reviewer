@@ -106,6 +106,54 @@ The tool writes `ns-review-report.json` in your current working directory contai
 - **Performance**: Blocking operations, heavy loops, image disposal
 - **Modals & Dialogs**: Proper cleanup of modal context
 
+### Entry Point & Bundle Sanity (BLOCKER-level)
+- **ns-entrypoint-sanity**: Detects runtime boot failures before running
+  - Missing entry point (no app/main.ts)
+  - Invalid `main` field (`"./"`causes "Failed to find module" crash)
+  - Missing moduleName target (app-root.xml)
+- **webpack-entry-sanity**: Validates webpack.config.js
+  - Invalid entry point configurations
+  - Deleted critical plugins (NativeScriptEntryPlugin)
+- **no-packagejson-import**: Detects problematic package.json imports
+  - `import ... from "~/package.json"` causes ESM bundle crashes
+  - **Known upstream issue**: @nativescript/core uses `require('~/package.json')`
+  - **Fix**: Add webpack alias to inline a stub (see below)
+
+### Post-Build Check (`--postbuild-check`)
+Validates the compiled bundle for runtime issues:
+```bash
+node cli.js /path/to/project --postbuild-check
+```
+
+Detects:
+- Externalized `~/package.json` (works but suboptimal)
+- Missing package.json asset (will crash)
+- URL-encoded package.json paths (webpack misconfiguration)
+
+**Recommended webpack fix** (add to webpack.config.js):
+```javascript
+webpack.chainWebpack((config) => {
+  // Alias ~/package.json to a stub
+  config.resolve.alias.set(
+    '~/package.json',
+    path.resolve(__dirname, 'app/config/package.stub.json')
+  );
+
+  // Remove from externals (NS preset externalizes by default)
+  const externals = config.get('externals') || [];
+  if (Array.isArray(externals)) {
+    config.set('externals', externals.filter(ext =>
+      typeof ext === 'string' ? ext !== '~/package.json' : true
+    ));
+  }
+});
+```
+
+Create `app/config/package.stub.json`:
+```json
+{"name": "your-app", "version": "1.0.0", "main": "bundle"}
+```
+
 ### Variables
 - Detects `var` usage (prefer let/const)
 - Identifies possibly undeclared identifiers

@@ -6,6 +6,9 @@ const { execSync } = require('child_process');
 
 const analyzers = require('./lib/analyzers');
 const android16kbRule = require('./lib/rules/android-16kb');
+const nsEntrypointRule = require('./lib/rules/ns-entrypoint-sanity');
+const webpackEntryRule = require('./lib/rules/webpack-entry-sanity');
+const nsBootstrapRule = require('./lib/rules/ns-bootstrap-chain');
 
 // ============================================================================
 // FILE DISCOVERY
@@ -323,6 +326,80 @@ async function analyze(root) {
 // CLI
 // ============================================================================
 
+// ============================================================================
+// POSTBUILD CHECK - Executable Sanity Checks
+// ============================================================================
+
+async function runPostbuildCheck(root, baselinePath) {
+  console.log('\n=== Executable App Sanity Check ===\n');
+
+  const issues = [];
+
+  // 1. Entry point sanity
+  console.log('[1/3] Checking entry point configuration...');
+  const entryIssues = nsEntrypointRule.checkProject(root);
+  issues.push(...entryIssues);
+
+  // 2. Webpack entry sanity (if webpack.config.js exists)
+  console.log('[2/3] Checking webpack configuration...');
+  const webpackIssues = webpackEntryRule.checkProject(root);
+  issues.push(...webpackIssues);
+
+  // 3. Bootstrap chain validation
+  console.log('[3/3] Checking bootstrap chain...');
+  const bootstrapIssues = nsBootstrapRule.checkProject(root);
+  issues.push(...bootstrapIssues);
+
+  // Apply baseline if provided
+  let finalIssues = issues;
+  if (baselinePath && fs.existsSync(baselinePath)) {
+    try {
+      const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+      const baselineFingerprints = new Set(baseline.fingerprints || []);
+      finalIssues = issues.filter(i => !baselineFingerprints.has(i.fingerprint));
+      console.log(`\nBaseline applied: ${issues.length - finalIssues.length} issues suppressed`);
+    } catch (e) {
+      console.warn(`Warning: Could not read baseline file: ${e.message}`);
+    }
+  }
+
+  // Count by severity
+  const highIssues = finalIssues.filter(i => i.severity === 'high');
+  const warnIssues = finalIssues.filter(i => i.severity === 'warn');
+  const infoIssues = finalIssues.filter(i => i.severity === 'info');
+
+  console.log('\n=== Postbuild Check Summary ===');
+  console.log(`  BLOCKER (high): ${highIssues.length}`);
+  console.log(`  WARNING: ${warnIssues.length}`);
+  console.log(`  INFO: ${infoIssues.length}`);
+
+  if (highIssues.length > 0) {
+    console.log('\nBLOCKER issues (must fix before running app):');
+    highIssues.forEach(i => {
+      console.log(`  ✗ [${i.rule}] ${i.message}`);
+      if (i.file) console.log(`    File: ${i.file}`);
+      if (i.remediation) console.log(`    Fix: ${i.remediation}`);
+    });
+  }
+
+  if (warnIssues.length > 0) {
+    console.log('\nWarnings:');
+    warnIssues.forEach(i => {
+      console.log(`  ⚠ [${i.rule}] ${i.message}`);
+    });
+  }
+
+  return {
+    status: highIssues.length > 0 ? 'FAIL' : 'PASS',
+    issues: finalIssues,
+    summary: {
+      high: highIssues.length,
+      warn: warnIssues.length,
+      info: infoIssues.length
+    }
+  };
+}
+
 function usage() {
   console.log(`
 NativeScript Code Reviewer with 16KB Compliance Check
@@ -330,17 +407,29 @@ NativeScript Code Reviewer with 16KB Compliance Check
 Usage: ns-review [path] [options]
 
 Options:
-  -h, --help     Show this help
-  --16kb-only    Only run 16KB compliance check (faster)
+  -h, --help          Show this help
+  --16kb-only         Only run 16KB compliance check (faster)
+  --postbuild-check   Run executable sanity checks only (entry point, webpack, bootstrap)
+  --baseline <file>   Apply baseline file to suppress known issues
 
 Examples:
-  ns-review .                    # Full review of current directory
-  ns-review ./myapp --16kb-only  # Only 16KB check
+  ns-review .                           # Full review of current directory
+  ns-review ./myapp --16kb-only         # Only 16KB check
+  ns-review ./myapp --postbuild-check   # Check entry points before running app
+  ns-review . --baseline baseline.json  # Apply baseline suppressions
 
 The reviewer checks:
   - Code quality, security, performance
   - NativeScript best practices
   - Android 16KB page size compliance (Play Store requirement)
+  - Entry point configuration (--postbuild-check)
+
+Postbuild checks (--postbuild-check):
+  - Entry point exists and calls Application.run()
+  - package.json main field is valid (not "./" or empty)
+  - moduleName target exists (app-root.xml, etc.)
+  - defaultPage targets exist
+  - webpack.config.js entry is valid
 
 16KB Compliance checks:
   - NDK version (r26+ required)
@@ -358,13 +447,37 @@ async function main() {
 
   const root = path.resolve(args.find(a => !a.startsWith('-')) || process.cwd());
   const only16kb = args.includes('--16kb-only');
+  const postbuildCheck = args.includes('--postbuild-check');
+
+  // Parse --baseline argument
+  let baselinePath = null;
+  const baselineIdx = args.indexOf('--baseline');
+  if (baselineIdx !== -1 && args[baselineIdx + 1]) {
+    baselinePath = path.resolve(args[baselineIdx + 1]);
+  }
 
   console.log('NativeScript Reviewer');
   console.log(`Scanning: ${root}\n`);
 
   let report;
+  let exitCode = 0;
 
-  if (only16kb) {
+  if (postbuildCheck) {
+    // Postbuild check mode - only executable sanity checks
+    const result = await runPostbuildCheck(root, baselinePath);
+    report = {
+      scannedAt: new Date().toISOString(),
+      root,
+      postbuildCheck: result
+    };
+
+    if (result.status === 'FAIL') {
+      console.log('\n✗ Postbuild check FAILED - App will likely crash at startup');
+      exitCode = 1;
+    } else {
+      console.log('\n✓ Postbuild check PASSED - Entry point configuration is valid');
+    }
+  } else if (only16kb) {
     // Fast mode - only 16KB check
     const readelfPath = findReadelf();
     report = {
@@ -372,19 +485,38 @@ async function main() {
       root,
       android16kb: await analyze16KB(root, readelfPath)
     };
+
+    if (report.android16kb && report.android16kb.status === 'FAIL') {
+      console.log('\n⚠️  16KB compliance FAILED - Fix issues before Play Store submission');
+      exitCode = 1;
+    }
   } else {
     // Full analysis
     report = await analyze(root);
+
+    // Also run postbuild check in full mode
+    console.log('\n--- Running postbuild sanity check ---');
+    const postbuildResult = await runPostbuildCheck(root, baselinePath);
+    report.postbuildCheck = postbuildResult;
+
+    if (postbuildResult.status === 'FAIL') {
+      console.log('\n✗ Postbuild check FAILED');
+      exitCode = 1;
+    }
+
+    // Exit code based on 16KB status
+    if (report.android16kb && report.android16kb.status === 'FAIL') {
+      console.log('\n⚠️  16KB compliance FAILED - Fix issues before Play Store submission');
+      exitCode = 1;
+    }
   }
 
   const out = path.join(process.cwd(), 'ns-review-report.json');
   fs.writeFileSync(out, JSON.stringify(report, null, 2), 'utf8');
   console.log(`\nReport written to: ${out}`);
 
-  // Exit code based on 16KB status
-  if (report.android16kb && report.android16kb.status === 'FAIL') {
-    console.log('\n⚠️  16KB compliance FAILED - Fix issues before Play Store submission');
-    process.exit(1);
+  if (exitCode !== 0) {
+    process.exit(exitCode);
   }
 }
 

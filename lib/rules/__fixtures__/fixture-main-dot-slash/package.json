@@ -1,0 +1,7 @@
+{
+  "name": "fixture-main-dot-slash",
+  "main": "./",
+  "nativescript": {
+    "id": "com.test.dotslash"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "fixture-missing-main",
+  "nativescript": {
+    "id": "com.test.missing"
+  }
+}

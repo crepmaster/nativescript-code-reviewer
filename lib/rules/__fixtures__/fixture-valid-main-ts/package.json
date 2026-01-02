@@ -1,0 +1,7 @@
+{
+  "name": "fixture-valid-main-ts",
+  "main": "app/main.ts",
+  "nativescript": {
+    "id": "com.test.valid"
+  }
+}
