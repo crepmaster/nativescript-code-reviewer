@@ -13,7 +13,8 @@
     "cli": "node cli.js",
     "lint": "eslint . --ext .js,.ts --fix || true",
     "samples": "node run-samples.js",
-    "install:typescript-eslint": "npm install eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin --save-optional"
+    "install:typescript-eslint": "npm install eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin --save-optional",
+    "reviewer:phase1": "node tools/run-phase1.js"
   },
   "author": "",
   "license": "MIT",
